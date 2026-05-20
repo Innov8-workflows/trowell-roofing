@@ -295,23 +295,22 @@ img{max-width:100%;display:block}
   box-shadow:0 4px 18px rgba(0,0,0,.35);
   cursor:ew-resize;
   transition:transform .15s ease;
+  touch-action:none;
 }
 .ba-knob:hover{transform:translate(-50%,-50%) scale(1.08)}
 .ba-knob:active{cursor:grabbing}
 .ba-knob svg{width:24px;height:24px;color:var(--navy)}
 .ba-range{
-  position:absolute;inset:0;
-  width:100%;height:100%;
+  position:absolute;
+  left:0;bottom:-1px;
+  width:100%;height:1px;
   opacity:0;
-  cursor:ew-resize;
-  z-index:5;
+  pointer-events:none;
   margin:0;
   -webkit-appearance:none;
   appearance:none;
   background:transparent;
 }
-.ba-range::-webkit-slider-thumb{-webkit-appearance:none;width:80px;height:100%;cursor:ew-resize}
-.ba-range::-moz-range-thumb{width:80px;height:100%;border:none;background:transparent;cursor:ew-resize}
 .ba-caption{
   margin-top:24px;
   text-align:center;
@@ -825,7 +824,7 @@ img{max-width:100%;display:block}
         <br>
         <span class="ba-hint">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/><polyline points="9 6 15 12 9 18" transform="translate(-3 0)"/></svg>
-          Drag the slider to compare
+          Drag the handle to compare
         </span>
       </div>
     </div>
@@ -1212,6 +1211,7 @@ startTimer();
   const handle = document.getElementById('baHandle');
   const knob = document.getElementById('baKnob');
   const range = document.getElementById('baRange');
+
   function setPos(pct){
     pct = Math.max(0, Math.min(100, pct));
     before.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
@@ -1219,27 +1219,39 @@ startTimer();
     knob.style.left = pct + '%';
     range.value = pct;
   }
-  range.addEventListener('input', e => setPos(parseFloat(e.target.value)));
-  // Pointer dragging for touch + mouse anywhere on the slider
-  let dragging = false;
-  function pctFromEvent(clientX){
+  function pctFromX(clientX){
     const rect = slider.getBoundingClientRect();
     return ((clientX - rect.left) / rect.width) * 100;
   }
+  range.addEventListener('input', e => setPos(parseFloat(e.target.value)));
+
+  // KNOB DRAG — claims the gesture immediately (touch-action:none on element)
+  let knobDragging = false;
+  knob.addEventListener('pointerdown', e => {
+    knobDragging = true;
+    knob.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  knob.addEventListener('pointermove', e => {
+    if(!knobDragging) return;
+    setPos(pctFromX(e.clientX));
+  });
+  function endKnobDrag(e){
+    if(!knobDragging) return;
+    knobDragging = false;
+    try{knob.releasePointerCapture(e.pointerId);}catch(_){}
+  }
+  knob.addEventListener('pointerup', endKnobDrag);
+  knob.addEventListener('pointercancel', endKnobDrag);
+
+  // SLIDER BODY — click-to-jump on mouse only; touch on body never hijacks scroll
   slider.addEventListener('pointerdown', e => {
-    dragging = true;
-    slider.setPointerCapture(e.pointerId);
-    setPos(pctFromEvent(e.clientX));
+    if(e.target === knob || knob.contains(e.target)) return;
+    if(e.pointerType === 'mouse'){
+      setPos(pctFromX(e.clientX));
+    }
+    // For touch on the body (not the knob), do nothing — let the page scroll
   });
-  slider.addEventListener('pointermove', e => {
-    if(!dragging) return;
-    setPos(pctFromEvent(e.clientX));
-  });
-  slider.addEventListener('pointerup', e => {
-    dragging = false;
-    try{slider.releasePointerCapture(e.pointerId);}catch(_){}
-  });
-  slider.addEventListener('pointercancel', () => dragging = false);
 })();
 
 // Contact form -> WhatsApp
