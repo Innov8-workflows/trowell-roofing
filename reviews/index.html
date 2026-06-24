@@ -64,11 +64,10 @@ h1{font-weight:800;font-size:2.4rem;line-height:1.05;letter-spacing:-.02em;color
 <body>
   <main class="card">
     <header class="card-head">
-      <video class="head-bg" autoplay muted playsinline preload="auto" poster="hero.jpg" aria-hidden="true">
+      <video class="head-bg" autoplay muted loop playsinline preload="auto" poster="hero.jpg" aria-hidden="true">
         <source src="orbital-01.mp4" type="video/mp4">
       </video>
       <div class="head-overlay" aria-hidden="true"></div>
-      <div class="logo-badge"><img src="logo-hero.png" alt="Trowell Roofing logo"></div>
       <p class="biz-tag">Roofing Specialists &middot; Trowell &amp; Nottingham</p>
     </header>
     <div class="card-body">
@@ -106,14 +105,19 @@ h1{font-weight:800;font-size:2.4rem;line-height:1.05;letter-spacing:-.02em;color
   function set(id, url, fallback){ var a = document.getElementById(id); a.href = (url && url.indexOf('PASTE_') !== 0) ? url : fallback; }
   set('googleBtn', GOOGLE_REVIEW_URL, "https://www.google.com/search?q=" + encodeURIComponent("Trowell Roofing Nottingham reviews"));
   set('fbBtn', FACEBOOK_REVIEW_URL, "https://www.facebook.com/search/top?q=" + encodeURIComponent("Trowell Roofing"));
-  // Start the header video 4s in, and loop back to 4s (skips the slow intro)
+  // The header video loops endlessly via the native loop attribute. Where the host
+  // supports range requests (e.g. GitHub Pages), we also skip the slow first 4s on
+  // every cycle. If seeking isn't supported it harmlessly falls back to looping from 0.
   (function(){
     var hv = document.querySelector('.head-bg'); if(!hv) return;
     var START = 4;
-    function seek(){ try{ hv.currentTime = START; }catch(e){} }
-    hv.addEventListener('loadedmetadata', seek);
-    if (hv.readyState >= 1) seek();
-    hv.addEventListener('ended', function(){ seek(); hv.play(); });
+    function canSeek(){ return hv.seekable && hv.seekable.length && hv.seekable.end(hv.seekable.length-1) >= START; }
+    function toStart(){ try{ if (canSeek()) hv.currentTime = START; }catch(e){} }
+    hv.addEventListener('loadedmetadata', toStart);
+    if (hv.readyState >= 1) toStart();
+    hv.addEventListener('timeupdate', function(){
+      if (hv.currentTime < START - 0.05) toStart();
+    });
   })();
   document.getElementById('year').textContent = new Date().getFullYear();
 </script>
